@@ -43,6 +43,26 @@ class Item(ABC):
                             points=[(item.getX(),item.getY()) for item in coords_list ], width=1)
         screen.blit(drawing_surface, (0, 0))
         pygame.display.flip()
+
+class DecoratedItem(Item):
+    def __init__(self,position:Point,item:Item):
+        super().__init__(position)
+        self.wrapee=item
+
+    def draw(self, screen, drawing_surface):
+        self.wrapee.draw(screen, drawing_surface)
+        self.draw_bounding_box(screen, drawing_surface)
+
+    def draw_bounding_box(self, screen, drawing_surface):
+        bounding_box = self.wrapee.getBoundingBox()
+        pygame.draw.polygon(surface=drawing_surface, color=(0, 255, 0),
+                            points=[(item.getX(), item.getY()) for item in bounding_box], width=2)
+        screen.blit(drawing_surface, (0, 0))
+        pygame.display.flip()
+    def getBoundingBox(self)->[Point,Point,Point,Point]:
+        return self.wrapee.getBoundingBox()
+
+
 class Primitive(Item):
     @abstractmethod
     def draw(self,screen:pygame.surface,drawing_surface:pygame.surface):
@@ -151,10 +171,18 @@ class Segment(Primitive):
         pygame.display.flip()
     def getBoundingBox(self) ->[Point,Point,Point,Point]:
 
-        x = self.Start.getX()
-        y = self.Start.getY()
-        x_moved = self.End.getX()
-        y_moved = self.End.getY()
+
+        x = self.Position.getX()
+        y = self.Position.getY()
+        if(self.Position==self.Start):
+            x_moved = self.End.getX()
+            y_moved = self.End.getY()
+        else:
+            x_moved = self.Start.getX()
+            y_moved = self.Start.getY()
+
+
+        print(x,y,x_moved,y_moved)
 
         return [Point(x,y), Point(x_moved, y), Point(x_moved, y_moved), Point(x, y_moved)]
     def translate(self,p:Point):
@@ -273,19 +301,38 @@ class Sinus(Shape):
         bottomleft=Point(x_pos+self.Length,y_pos)
         return [topleft,topright,bottomright,bottomleft]
 
+class SingletonManager():
+
+
+    @classmethod
+    def create_singleton(cls, scene,class_name, *args):
+
+        if class_name in scene.ItemListClass:
+            previous=scene.ItemListClass.pop(class_name)
+            scene.ItemList.remove(previous)
+
+
+        instance = globals()[class_name](*args)
+        scene.ItemListClass[class_name] = instance
+
+        return instance
 
 
 class Scene():
     def __init__(self,screen:pygame.surface,drawing_surface:pygame.surface):
         self.ItemList:list[Item]=[]
+        self.ItemListClass:dict={}
         self.screen=screen
         self.drawing_surface=drawing_surface
 
     def draw(self):
         for item in self.ItemList:
             item.draw(screen=self.screen,drawing_surface=self.drawing_surface)
-            item.drawBoundingBox(self.screen,self.drawing_surface)
+           # item.drawBoundingBox(self.screen,self.drawing_surface)
 
 
-    def addItem(self,item:Item):
-        self.ItemList.append(item)
+    def addItem(self,item_class_name:str, *args):
+        item_instance = SingletonManager.create_singleton(self,item_class_name, *args)
+
+        # Dodajemy obiekt do sceny
+        self.ItemList.append(item_instance)
